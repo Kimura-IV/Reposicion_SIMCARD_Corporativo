@@ -191,79 +191,8 @@ FECHA DE MODIFICACIÓN: 02/07/2014-2
         
         End If
                
-        '*****************************************************     
         If Tipo.SelectedValue = "P" Then
           
-               
-            'Dim conn2 As SqlConnection = New SqlConnection(ConfigurationManager.ConnectionStrings("CRMConnectionString").ConnectionString)
-      
-            'Dim cmd2 As SqlCommand = New SqlCommand()
-            'cmd2.Connection = conn2
-            'Dim cmd3 As SqlCommand = New SqlCommand()
-            'cmd3.Connection = conn2
-            'Dim cmd4 As SqlCommand = New SqlCommand()
-            'cmd4.Connection = conn2
-                          
-            'Dim codig As TextBox = New TextBox
-            'Dim c_req As TextBox = New TextBox
-            'Dim n_tram As TextBox = New TextBox
-            'c_req.Text = 25
-            'n_tram.Text = "-"
-            'Dim re As SqlDataReader = conexion.traerDataReader("select top 1 codigo from tbl_pymes_clientes where ced_ruc='" & ced_ruc.Text & "' and estado='A' order by codigo desc", 3)
-          
-            'While re.Read
-            '    codig.Text = re.GetValue(0)
-            'End While
-        
-            
-            'If codig.Text > "0" Then
-            '    Dim est As New TextBox
-            '    est.Text = "1"
-             
-            '    cmd2.CommandText = " insert into tbl_pymes_bitacora_clientes_servicio (cod_padre,cod_req,num_tramite,usuario,observacion,cod_sim,estado) values (" & codig.Text & "," & c_req.Text & ",'" & n_tram.Text & "','" & usuario.Value & "','" & obs.Text & "'," & cod_sim.Text & ",'" & est.Text & "')"
-            '    Dim id As TextBox = New TextBox
-            '    Dim tipo As TextBox = New TextBox
-            '    tipo.Text = "S"
-           
-            '    Dim re2 As SqlDataReader = conexion.traerDataReader("select top 1 codigo from tbl_pymes_bitacora_clientes_servicio order by codigo desc ", 3)
-            '    While re2.Read
-            '        id.Text = re2.GetValue(0) + 1
-            '    End While
-                        
-            '    cmd3.CommandText = "insert into Tbl_pymes_tramites_general (tipo,cod_gen,cod_padre) values ('" & tipo.Text & "','" & id.Text & "'," & codig.Text & ")"
-
-
-            '    Dim cod_gen As New TextBox
-               
-            '    Dim re3 As SqlDataReader = conexion.traerDataReader("select top 1 id from Tbl_pymes_tramites_general order by id desc ", 3)
-            '    While re3.Read
-            '        cod_gen.Text = re3.GetValue(0) + 1
-            '    End While
-            '    cmd4.CommandText = "insert into Tbl_pymes_estados_tramite (cod_tramite,estado,usuario,tipo,cod_sim,observacion) values  ('" & cod_gen.Text & "','" & est.Text & "','" & usuario.Value & "','" & tipo.Text & "','" & cod_sim.Text & "','" & obs.Text & "')"
-            '    re2.Close()
-            '    re3.Close()
-           
-            'End If
-                
-            'Dim rowCount2 As Integer
-            'Dim previousConnectionState2 As ConnectionState
-            'previousConnectionState2 = conn2.State
-            'Try
-            '    If conn2.State = ConnectionState.Closed Then
-            '        conn2.Open()
-            '    End If
-          
-            '    rowCount2 = cmd2.ExecuteNonQuery()
-            '    rowCount2 = cmd3.ExecuteNonQuery()
-            '    rowCount2 = cmd4.ExecuteNonQuery()
-            'Finally
-               
-            '    If previousConnectionState2 = ConnectionState.Closed Then
-            '        conn2.Close()
-            '    End If
-            'End Try
-            're.Close()
-      
             cmd.Connection = conn
             cmd.CommandText = "atv_reposicion_sim_ingreso"
             cmd.CommandType = CommandType.StoredProcedure
