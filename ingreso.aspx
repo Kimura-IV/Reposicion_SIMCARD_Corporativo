@@ -22,14 +22,20 @@ MODIFICADO POR: Cima Galo Ortiz C.
 MOTIVO DE MODIFICACIÓN: Se elimina opcion para registrar en la BD tipos de simcard MICRO SIMCARD
 FECHA DE MODIFICACIÓN: 02/07/2014-2
 ***************************************************************************************************************
+***************************************************************************************************************
+DESCRIPCION: 22735 - Reposicion SIMCARD corporativo
+MODIFICADO POR: SUD. GVillanueva
+MOTIVO DE MODIFICACIÓN: Setear solicitud como pendiente (X) - Resolución ARCOTEL-2022-0335, articulo 18.1
+FECHA DE MODIFICACIÓN: 14/07/2023
+***************************************************************************************************************
 --%>
 <%@ Page Language="VB"   StylesheetTheme="white" Debug="true" %>
-
 
 <%@ Register Src="menu.ascx" TagName="menu" TagPrefix="uc1" %>
 <%@ Register Assembly="BusyBoxDotNet" Namespace="BusyBoxDotNet" TagPrefix="busyboxdotnet" %>
 <%@ Import Namespace="System.Data.SqlClient" %>
 <%@ Import Namespace="System.Data" %>
+<%@ import Namespace="System.Web.Mail" %>
 
 <script runat="server">
     
@@ -79,6 +85,7 @@ FECHA DE MODIFICACIÓN: 02/07/2014-2
         
     End Sub
       
+    
     Protected Sub guardar_click(ByVal sender As Object, ByVal e As System.EventArgs)
         valida.Visible = False
         '8957 - CIM GORTIZ - Validar numero de lineas insertadas
@@ -143,8 +150,12 @@ FECHA DE MODIFICACIÓN: 02/07/2014-2
         
     End Sub
     
+    
+    
     Protected Sub ds_guardar_Inserted(ByVal sender As Object, ByVal e As System.Web.UI.WebControls.SqlDataSourceStatusEventArgs)
-        Dim conn As SqlConnection = New SqlConnection(ConfigurationManager.ConnectionStrings("intr_callConnectionString").ConnectionString)
+        
+		
+		Dim conn As SqlConnection = New SqlConnection(ConfigurationManager.ConnectionStrings("intr_callConnectionString").ConnectionString)
         Dim cmd As SqlCommand = New SqlCommand()
         Dim codigo As Integer = e.Command.Parameters("@return_id").Value
         Dim cod_sim As TextBox = New TextBox
@@ -180,7 +191,81 @@ FECHA DE MODIFICACIÓN: 02/07/2014-2
         
         End If
                
+       
+        '*****************************************************     
+       
         If Tipo.SelectedValue = "P" Then
+          
+               
+            'Dim conn2 As SqlConnection = New SqlConnection(ConfigurationManager.ConnectionStrings("CRMConnectionString").ConnectionString)
+      
+            'Dim cmd2 As SqlCommand = New SqlCommand()
+            'cmd2.Connection = conn2
+            'Dim cmd3 As SqlCommand = New SqlCommand()
+            'cmd3.Connection = conn2
+            'Dim cmd4 As SqlCommand = New SqlCommand()
+            'cmd4.Connection = conn2
+                          
+            'Dim codig As TextBox = New TextBox
+            'Dim c_req As TextBox = New TextBox
+            'Dim n_tram As TextBox = New TextBox
+            'c_req.Text = 25
+            'n_tram.Text = "-"
+            'Dim re As SqlDataReader = conexion.traerDataReader("select top 1 codigo from tbl_pymes_clientes where ced_ruc='" & ced_ruc.Text & "' and estado='A' order by codigo desc", 3)
+          
+            'While re.Read
+            '    codig.Text = re.GetValue(0)
+            'End While
+        
+            
+            'If codig.Text > "0" Then
+            '    Dim est As New TextBox
+            '    est.Text = "1"
+             
+            '    cmd2.CommandText = " insert into tbl_pymes_bitacora_clientes_servicio (cod_padre,cod_req,num_tramite,usuario,observacion,cod_sim,estado) values (" & codig.Text & "," & c_req.Text & ",'" & n_tram.Text & "','" & usuario.Value & "','" & obs.Text & "'," & cod_sim.Text & ",'" & est.Text & "')"
+            '    Dim id As TextBox = New TextBox
+            '    Dim tipo As TextBox = New TextBox
+            '    tipo.Text = "S"
+           
+            '    Dim re2 As SqlDataReader = conexion.traerDataReader("select top 1 codigo from tbl_pymes_bitacora_clientes_servicio order by codigo desc ", 3)
+            '    While re2.Read
+            '        id.Text = re2.GetValue(0) + 1
+            '    End While
+                        
+            '    cmd3.CommandText = "insert into Tbl_pymes_tramites_general (tipo,cod_gen,cod_padre) values ('" & tipo.Text & "','" & id.Text & "'," & codig.Text & ")"
+
+
+            '    Dim cod_gen As New TextBox
+               
+            '    Dim re3 As SqlDataReader = conexion.traerDataReader("select top 1 id from Tbl_pymes_tramites_general order by id desc ", 3)
+            '    While re3.Read
+            '        cod_gen.Text = re3.GetValue(0) + 1
+            '    End While
+            '    cmd4.CommandText = "insert into Tbl_pymes_estados_tramite (cod_tramite,estado,usuario,tipo,cod_sim,observacion) values  ('" & cod_gen.Text & "','" & est.Text & "','" & usuario.Value & "','" & tipo.Text & "','" & cod_sim.Text & "','" & obs.Text & "')"
+            '    re2.Close()
+            '    re3.Close()
+           
+            'End If
+                
+            'Dim rowCount2 As Integer
+            'Dim previousConnectionState2 As ConnectionState
+            'previousConnectionState2 = conn2.State
+            'Try
+            '    If conn2.State = ConnectionState.Closed Then
+            '        conn2.Open()
+            '    End If
+          
+            '    rowCount2 = cmd2.ExecuteNonQuery()
+            '    rowCount2 = cmd3.ExecuteNonQuery()
+            '    rowCount2 = cmd4.ExecuteNonQuery()
+            'Finally
+               
+            '    If previousConnectionState2 = ConnectionState.Closed Then
+            '        conn2.Close()
+            '    End If
+            'End Try
+            're.Close()
+      
             cmd.Connection = conn
             cmd.CommandText = "atv_reposicion_sim_ingreso"
             cmd.CommandType = CommandType.StoredProcedure
@@ -205,6 +290,7 @@ FECHA DE MODIFICACIÓN: 02/07/2014-2
                     conn.Close()
                 End If
             End Try
+            
         End If
        
         '8957 - CIM GORTIZ - Se actualiza tramite en tabla de detalle
@@ -239,8 +325,14 @@ FECHA DE MODIFICACIÓN: 02/07/2014-2
                 conn5.Close()
             End If
             End Try
+		
+		'22735 - Reposicion SIMCARD corporativo - actualiza solicitud a pendiente
+		Dim estadoP as String = "X"
+		ds_actualizar_sol.UpdateParameters.Item("estado").DefaultValue = estadoP
+		ds_actualizar_sol.UpdateParameters.Item("id_padre_sim").DefaultValue = cod_sim.Text
+		ds_actualizar_sol.Update()
+		
     End Sub
-
     '==============================================================================
     ' Fecha:            28-04-2014
     ' Proyecto:         [8957] Mejoras al registro único de clientes corporativos
@@ -424,6 +516,7 @@ if ((arguments.Value.length==0)){
 
 }	
 
+
 function validar_nom_c(source,arguments) { 
 	
 if ((arguments.Value.length==0)){
@@ -567,7 +660,7 @@ function validar_telf_adm(source,arguments)
 <head id="Head1" runat="server">
 
 
-    <title>Reposición de Simcard | Ingreso</title> 
+    <title>Reposici&#243;n de Simcard | Ingreso</title> 
       <script language="javascript" src="/portalsco/include/js/calendar/popcalendar.js"></script>
     <LINK href="/portalsco/include/js/calendar/popcalendar.css" type="text/css" rel="stylesheet"> 
     <style type="text/css">
@@ -1029,6 +1122,7 @@ ORDER BY NOMBRE">
             SelectCommand="SELECT id_sim_det, telefono_Reposicion, CASE motivo_Reposicion WHEN 'R' THEN 'Robo' WHEN 'A' THEN 'Daño/Perdida' WHEN 'S' THEN 'Stock de simcard' END AS motivo_Reposicion, CASE tipochip_Reposicion WHEN 'C' THEN 'Simcard Normal' WHEN 'M' THEN 'Mini Simcard' WHEN 'I' THEN 'Micro Simcard' WHEN 'N' THEN 'Nano Simcard' END AS tipochip_Reposicion, fecha_Registro FROM Tbl_atv_reposicion_sim_detalle WHERE (id_CuentaAxis = @ctaAxis) AND (estado = 'P') ORDER BY id_sim_det" 
             CancelSelectOnNullParameter="False" 
             
+            
             InsertCommand="INSERT INTO Tbl_atv_reposicion_sim_detalle(id_CuentaAxis, telefono_Reposicion, motivo_Reposicion, tipochip_Reposicion, fecha_Registro, usuario_Registro, estado) VALUES (@id_CuentaAxis, @telefono_repsim, @motivo_repsim, @tipochp_repsim, getdate(), @usuario_Registro, 'P')" 
             DeleteCommand="DELETE FROM Tbl_atv_reposicion_sim_detalle WHERE (id_sim_det = @id_sim_det) AND (estado = 'P')" 
             
@@ -1054,6 +1148,14 @@ ORDER BY NOMBRE">
             <UpdateParameters>
                 <asp:Parameter Name="id_sim" />
                 <asp:Parameter Name="id_sim_det" />
+            </UpdateParameters>
+        </asp:SqlDataSource>
+		<%--22735 - DATASOURCE ACTUALIZAR SOLICITUD A PENDINETE--%>
+        <asp:SqlDataSource ID="ds_actualizar_sol" runat="server" ConnectionString="<%$ ConnectionStrings:Intr_callConnectionString %>"
+            UpdateCommand="UPDATE Tbl_atv_reposicion_sim_proceso SET ultimo_estado = @estado WHERE id_padre = @id_padre_sim">
+            <UpdateParameters>
+                <asp:Parameter Name="estado" />
+                <asp:Parameter Name="id_padre_sim" />
             </UpdateParameters>
         </asp:SqlDataSource>
 </form>

@@ -1,0 +1,49 @@
+--------------------------------- PROCESO 1 -------------------------------------------------------------------------------------------
+
+PROCESO TIENE QUE HACER DEBE LEER LA NUEVA TABLA LA QUE SE CREO EN SQL SERVER ESTA DE AQUI:
+
+GO
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+CREATE TABLE [dbo].[Tbl_atv_reposision_sim_cola](
+    [id_simcard_cola] [int] IDENTITY(1,1) NOT NULL,
+    [id_simcard_pr] [int] NOT NULL,
+    [origen] [nchar](20) NULL,
+    [estado] [nchar](10) NULL,
+    [respuesta_ws] [nvarchar](max) NULL,
+    [fecha_programada] [datetime] NULL,
+    [usuario_registro] [nchar](15) NULL,
+    [fecha_registro] [datetime] NULL,
+    [usuario_modificacion] [nchar](15) NULL,
+    [fecha_modificacion] [datetime] NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+
+
+TIENE QUE LEER TODOS LOS REGISTROS QUE TENGAN ESTADO PENDIENTE Y APARTE QUE LA [fecha_programada] SEA MAYOR A LA HORA ACTUAL.
+Y LUEGO DEBERA CAMBIAR DE ESTADO A --> FINALIZADO
+
+
+--------------------------------- PROCESO 2 -------------------------------------------------------------------------------------------
+
+AL MISMO PROCESO AGG UN UPDATE A ESTA TABLA Tbl_atv_reposicion_sim_proceso QUE LEERA EL ESTADO PENDIENTE Y LO CAMBIARA A INGRESADO
+
+DATASOURCE QUE SE TIENE:
+<SelectParameters>
+                <asp:ControlParameter ControlID="nom" DefaultValue="aaa" Name="nom" PropertyName="Text" />
+                <asp:ControlParameter ControlID="login" DefaultValue="" Name="login" PropertyName="SelectedValue" />
+                <asp:ControlParameter ControlID="estado" Name="est" PropertyName="SelectedValue" />
+                <asp:ControlParameter ControlID="ases" Name="ases" PropertyName="SelectedValue" />
+                <asp:Parameter DefaultValue="off" Name="rango" />
+                <asp:ControlParameter ControlID="fecha_i" DefaultValue="" Name="fi" PropertyName="Text" />
+                <asp:ControlParameter ControlID="fecha_f" Name="ff" PropertyName="Text" />
+                <asp:ControlParameter ControlID="tram" DefaultValue="000" Name="tram" PropertyName="Text" />
+                <asp:ControlParameter ControlID="axis" DefaultValue="999" Name="axis" PropertyName="Text" />
+                <asp:ControlParameter ControlID="num_repo" DefaultValue="000" Name="repo" PropertyName="Text" />
+                <asp:ControlParameter ControlID="tipo" DefaultValue="-1" Name="tipo" 
+                    PropertyName="SelectedValue" />
+                <asp:ControlParameter ControlID="cmb_id_region" DefaultValue="-1" Name="region" 
+                    PropertyName="SelectedValue" />
+            </SelectParameters>

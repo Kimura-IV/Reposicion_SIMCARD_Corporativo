@@ -1,0 +1,169 @@
+create or replace package porta.CLK_REPOSICION_SIM_EN_LINEA is
+
+  PROCEDURE P_INSERTAR_BITACORA_SIM(pn_id_sim_det     NUMBER,
+                                    pn_id_simcard_pr  NUMBER,
+                                    pv_origen         VARCHAR2,
+                                    pv_estado         VARCHAR2,
+                                    pv_telefono       VARCHAR2,
+                                    pv_numero_simcard VARCHAR2,
+                                    pv_usuario        VARCHAR2,
+                                    pv_numero_admin   VARCHAR2,
+                                    pn_error          OUT NUMBER,
+                                    pv_error          OUT VARCHAR2);
+
+  PROCEDURE P_ACTUALIZA_BITACORA_SIM(pn_id_simcard_pr NUMBER,
+                                     pv_estado        VARCHAR2,
+                                     pn_error         OUT NUMBER,
+                                     pv_error         OUT VARCHAR2);
+
+  PROCEDURE P_REPONE_COLA_EN_LINEA;
+
+end CLK_REPOSICION_SIM_EN_LINEA;
+/
+create or replace package body porta.CLK_REPOSICION_SIM_EN_LINEA is
+
+  PROCEDURE P_INSERTAR_BITACORA_SIM(pn_id_sim_det     NUMBER,
+                                    pn_id_simcard_pr  NUMBER,
+                                    pv_origen         VARCHAR2,
+                                    pv_estado         VARCHAR2,
+                                    pv_telefono       VARCHAR2,
+                                    pv_numero_simcard VARCHAR2,
+                                    pv_usuario        VARCHAR2,
+                                    pv_numero_admin   VARCHAR2,
+                                    pn_error          OUT NUMBER,
+                                    pv_error          OUT VARCHAR2)
+  
+   IS
+  
+    LN_ID_REGISTRO    NUMBER;
+    LD_FEC_REGISTRO   DATE;
+    LD_FEC_PROGRAMADA DATE;
+  
+  BEGIN
+  
+    SELECT PORTA.CL_SEQ_BITACORA_REPO_SIM.NEXTVAL
+      INTO LN_ID_REGISTRO
+      FROM dual;
+  
+    SELECT SYSDATE, SYSDATE + (1 / 1440 * 30)
+      INTO LD_FEC_REGISTRO, LD_FEC_PROGRAMADA
+      FROM DUAL;
+  
+    INSERT INTO PORTA.CL_BITACORA_REPOSICION_SIM
+      (ID_SIM_COLA,
+       ID_SIM_DET,
+       ID_SIMCARD_PR,
+       ORIGEN,
+       ESTADO,
+       TELEFONO,
+       NUMERO_SIMCARD,
+       USUARIO,
+       NUMERO_ADMIN,
+       FECHA_PROGRAMADA,
+       USUARIO_REGISTRO,
+       FECHA_REGISTRO)
+    VALUES
+      (LN_ID_REGISTRO,
+       pn_id_sim_det,
+       pn_id_simcard_pr,
+       pv_origen,
+       pv_estado,
+       pv_telefono,
+       pv_numero_simcard,
+       pv_usuario,
+       pv_numero_admin,
+       LD_FEC_PROGRAMADA,
+       USER,
+       LD_FEC_REGISTRO);
+    COMMIT;
+  
+    pn_error := 0;
+    pv_error := NULL;
+  
+  EXCEPTION
+    WHEN OTHERS THEN
+      ROLLBACK;
+      pn_error := SQLCODE;
+      pv_error := SQLERRM;
+    
+  END;
+
+  PROCEDURE P_ACTUALIZA_BITACORA_SIM(pn_id_simcard_pr IN NUMBER,
+                                     pv_estado        VARCHAR2,
+                                     pn_error         OUT NUMBER,
+                                     pv_error         OUT VARCHAR2)
+  
+   IS
+  BEGIN
+    UPDATE PORTA.Cl_bitacora_reposicion_sim J
+       SET J.ESTADO = pv_estado
+     WHERE J.ID_SIMCARD_PR = pn_id_simcard_pr
+       AND J.ESTADO = 'PENDIENTE';
+    COMMIT;
+  
+    pn_error := 0;
+    pv_error := NULL;
+  
+  EXCEPTION
+    WHEN OTHERS THEN
+      ROLLBACK;
+      pn_error := SQLCODE;
+      pv_error := SQLERRM;
+    
+  END;
+
+  PROCEDURE P_REPONE_COLA_EN_LINEA IS
+  
+    CURSOR C_REPONE_PENDIENTE IS
+      SELECT *
+        FROM PORTA.Cl_bitacora_reposicion_sim G
+       WHERE G.ESTADO = 'PENDIENTE'
+         AND G.FECHA_PROGRAMADA > SYSDATE;
+  
+    TYPE LR_DATOS IS TABLE OF C_REPONE_PENDIENTE%ROWTYPE INDEX BY PLS_INTEGER;
+    LT_DATOS LR_DATOS;
+  
+    LV_CONFIRMA       VARCHAR2(1000);
+    LV_MENSAJETECNICO VARCHAR2(1000);
+    LV_MENSAJEUSUARIO VARCHAR2(1000);
+    LN_CODIGO_ERROR   NUMBER;
+  
+  BEGIN
+    OPEN C_REPONE_PENDIENTE;
+  
+    LOOP
+      FETCH C_REPONE_PENDIENTE BULK COLLECT
+        INTO LT_DATOS LIMIT 1000;
+      EXIT WHEN LT_DATOS.COUNT = 0;
+    
+      FOR I IN LT_DATOS.FIRST .. LT_DATOS.LAST LOOP
+        porta.PRC_REPOSICIONSIMCARD_MICLARO(LT_DATOS         (I).TELEFONO,
+                                            LT_DATOS         (I).NUMERO_SIMCARD,
+                                            LT_DATOS         (I).USUARIO,
+                                            LT_DATOS         (I).NUMERO_ADMIN,
+                                            LV_CONFIRMA,
+                                            LV_MENSAJETECNICO,
+                                            LV_MENSAJEUSUARIO,
+                                            LN_CODIGO_ERROR);
+      
+        IF LV_CONFIRMA = 'S' THEN
+          UPDATE PORTA.Cl_bitacora_reposicion_sim L
+             SET L.ESTADO = 'EXITO'
+           WHERE L.ID_SIM_COLA = LT_DATOS(I).ID_SIM_COLA;
+        ELSE
+          /* FALTA ACOMODAR */
+          UPDATE PORTA.Cl_bitacora_reposicion_sim L
+             SET L.ESTADO = 'ERROR'
+           WHERE L.ID_SIM_COLA = LT_DATOS(I).ID_SIM_COLA;
+          LV_MENSAJETECNICO := 'ERROR';
+          
+        END IF;
+      
+      END LOOP;
+    
+    END LOOP;
+    CLOSE C_REPONE_PENDIENTE;
+  END;
+
+end;
+/

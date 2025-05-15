@@ -1,0 +1,54 @@
+CREATE PROCEDURE CambiarEstado
+AS
+BEGIN
+    -- Obtener la hora actual
+    DECLARE @HoraActual DATETIME;
+    SET @HoraActual = GETDATE();
+    
+    -- Declarar una variable para almacenar el id_simcard_pr
+    DECLARE @IdPadre INT;
+    
+    -- Declarar un cursor para recorrer los registros de Tbl_atv_reposicion_sim_proceso
+    DECLARE cursor_sim_proceso CURSOR FOR
+    SELECT id_padre
+    FROM Intr_call.Tbl_atv_reposicion_sim_proceso
+    WHERE estado = 'X';
+    
+    -- Abrir el cursor
+    OPEN cursor_sim_proceso;
+    
+    -- Obtener el primer id_padre del cursor
+    FETCH NEXT FROM cursor_sim_proceso INTO @IdPadre;
+    
+    -- Iniciar un ciclo WHILE para procesar cada registro del cursor
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        -- Verificar si hay registros en Tbl_atv_reposision_sim_cola que cumplan las condiciones
+        DECLARE @Count INT;
+        
+        -- Obtener la cantidad de registros que cumplen con las condiciones
+        SELECT @Count = COUNT(*)
+        FROM Intr_call.Tbl_atv_reposision_sim_cola c
+        WHERE c.id_simcard_pr = @IdPadre
+        AND c.estado = 'PENDIENTE'
+        AND c.fecha_programada > @HoraActual;
+        
+        -- Si se cumplen las condiciones, actualizar el estado en Tbl_atv_reposicion_sim_proceso
+        IF @Count > 0
+        BEGIN
+            UPDATE Intr_call.Tbl_atv_reposicion_sim_proceso
+            SET estado = 'I'
+            WHERE id_padre = @IdPadre;
+        END
+        
+        -- Obtener el siguiente id_padre del cursor
+        FETCH NEXT FROM cursor_sim_proceso INTO @IdPadre;
+    END;
+    
+    -- Cerrar el cursor
+    CLOSE cursor_sim_proceso;
+    
+    -- Liberar los recursos del cursor
+    DEALLOCATE cursor_sim_proceso;
+    
+END;

@@ -1,0 +1,28 @@
+[11:57] TIC Luis Flores
+script para pase a prod de la tabla
+
+USE [Intr_call]
+GO
+
+/****** Object:  Table [dbo].[Tbl_atv_reposision_sim_cola]    Script Date: 8/8/2023 11:57:34 ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[Tbl_atv_reposision_sim_cola](
+    [id_simcard_cola] [int] IDENTITY(1,1) NOT NULL,
+    [id_simcard_pr] [int] NOT NULL,
+    [origen] [nchar](20) NULL,
+    [estado] [nchar](10) NULL,
+    [respuesta_ws] [nvarchar](max) NULL,
+    [fecha_programada] [datetime] NULL,
+    [usuario_registro] [nchar](15) NULL,
+    [fecha_registro] [datetime] NULL,
+    [usuario_modificacion] [nchar](15) NULL,
+    [fecha_modificacion] [datetime] NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+GO
+
+ 

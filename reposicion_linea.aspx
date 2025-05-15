@@ -1,4 +1,4 @@
-<%--
+﻿<%--
 ***************************************************************************************************************
 DESCRIPCION: Formulario de ingreso de solicitud de reposicion Simcard
 MODIFICADO POR: Cima Galo Ortiz C. 
@@ -30,9 +30,16 @@ FECHA DE MODIFICACIÓN: 02/07/2014-2
 <%@ register assembly="BusyBoxDotNet" namespace="BusyBoxDotNet" tagprefix="busyboxdotnet" %>
 <%@ import namespace="System.Data.SqlClient" %>
 <%@ import namespace="System.Data" %>
+<%@ import namespace="System.Data.OracleClient" %>
+<%@ import namespace="System.Data.OracleClient.OracleConnection" %>
+<%@ import Namespace="System.Web.Mail" %>
+<%@ import namespace="System.IO" %>
+<%@ import namespace="Microsoft.VisualBasic.FileIO" %>
 
 <script runat="server">
     Public conexion As conexiones = New conexiones
+    Private lines As New List(Of String)()
+
     Protected Sub Page_Load(ByVal sender As Object, ByVal e As System.EventArgs)
         If User.Identity.IsAuthenticated Then
             Dim strClientIP As String
@@ -48,47 +55,14 @@ FECHA DE MODIFICACIÓN: 02/07/2014-2
             Response.Redirect("/portalsco/login.aspx?ReturnUrl=/portalsco/webpages/atv/reposicion_sim/ingreso.aspx")
         End If
         valida.Visible = False
-        
-        If CheckBox1.Checked Then
-            num_repo_v.Enabled = True
-        Else
-            num_repo_v.Enabled = False
-        End If
-        '8957 - CIM GORTIZ - Reiniciar combo de ciudades
-        If celular.Text = "" Then
-            ddl_ciudad.Items.Clear()
-            ds_ciudad.DataBind()
-            ddl_ciudad.DataSourceID = ds_ciudad.ID
-            ddl_ciudad.Items.Add("-Seleccionar-")
-            ddl_ciudad.Items.FindByText("-Seleccionar-").Value = "-1"
-            ddl_ciudad.Items.FindByText("-Seleccionar-").Selected = True
-        End If
-    End Sub
-
-    Protected Sub TIPO_SelectedIndexChanged(ByVal sender As Object, ByVal e As System.EventArgs)
-        If TIPO.SelectedValue = "P" Then
-            ases.Visible = False
-            asesor.Visible = False
-        Else
-            ases.Visible = True
-            asesor.Visible = True
-        End If
     End Sub
       
     Protected Sub guardar_click(ByVal sender As Object, ByVal e As System.EventArgs)
         valida.Visible = False
         '8957 - CIM GORTIZ - Validar numero de lineas insertadas
+
         Dim contador As Integer = Convert.ToInt32(celular.Text.ToString())
         Dim region As String = ddl_region.SelectedValue
-
-
-        Dim nom_ases As String = Nothing
-        Dim direccion As String = Nothing
-        Dim num_repo_v As String = Nothing
-        Dim nom_contacto As String = Nothing
-        Dim correo As String = Nothing
-        Dim telf_contacto As String = Nothing
-        Dim telf_contacto2 As String = Nothing
 
 
         If region = "UIO" Then
@@ -98,38 +72,30 @@ FECHA DE MODIFICACIÓN: 02/07/2014-2
         End If
 
         ds_guardar.InsertParameters.Item("region").DefaultValue = region
+		ds_guardar.InsertParameters.Item("telf_contacto").DefaultValue = "0999999999"
+		ds_guardar.InsertParameters.Item("telf_contacto2").DefaultValue = "0999999999"
+	
 
-
-        ds_guardar.InsertParameters.Item("nom_ases").DefaultValue = ases
-        ds_guardar.InsertParameters.Item("direccion").DefaultValue = dir
-        ds_guardar.InsertParameters.Item("num_repo_v").DefaultValue = num_repo_v
-        ds_guardar.InsertParameters.Item("nom_contacto").DefaultValue = nom_contacto
-        ds_guardar.InsertParameters.Item("correo").DefaultValue = txt_CorreoCliente
-        ds_guardar.InsertParameters.Item("telf_contacto").DefaultValue = telf_contacto
-        ds_guardar.InsertParameters.Item("telf_contacto2").DefaultValue = contacto2
-        
-        
         If Tipo.SelectedValue = "V" Then
             If contador = 0 Then
                 valida.Visible = True
                 valida.Text = "Al menos debe agregar un numero de telefono en la observación de la solicitud."
             Else
-                Dim lbl_tlf_rep_tmp As Label
-                Dim therowindex As Integer = 0
-        
-                For Each row As GridViewRow In gv_lineas_solicitud.Rows()
-                    therowindex = row.RowIndex
-                    lbl_tlf_rep_tmp = DirectCast(gv_lineas_solicitud.Rows(therowindex).FindControl("lbl_num_rep_det"), Label)
-                    If lbl_tlf_rep_tmp.Text <> "" Then
-                        num_repo_v.Text = num_repo_v.Text.ToString() + lbl_tlf_rep_tmp.Text.ToString() + " "
+                Dim result As New StringBuilder()
+                For Each item As String In lines
+                    Dim fields As String() = item.Split(","c)
+                    Dim linea As String = fields(0)
+                    If linea <> "" Then
+                        result.Append(linea).Append(" ")
                     End If
                 Next
-                num_repo_v.Text = num_repo_v.Text.ToString().Trim()
-                num_repo_v.Text = num_repo_v.Text.ToString().Replace(" ", "-")
+                Dim formattedResult As String = result.ToString().Trim().Replace(" ", "-")
+                num_repo_v.Text = formattedResult
                 ds_guardar.Insert()
-                Response.Redirect("consulta.aspx")
+                'Response.Redirect("consulta.aspx")
             End If
         End If
+
 
         If Tipo.SelectedValue = "P" Then                     
             Dim codig As TextBox = New TextBox
@@ -145,7 +111,8 @@ FECHA DE MODIFICACIÓN: 02/07/2014-2
                     valida.Text = "Al menos debe agregar un numero de telefono en el detalle de la solicitud."
                 Else
                     ds_guardar.Insert()
-                    Response.Redirect("consulta.aspx")
+                    'Response.Redirect("consulta.aspx")
+                    'Response.Write(telf_contactos2.text,"-",telf_contactos.text,"-",correos.text,"-",nom_cont.text,"-",dir.text,"-",region.text)
                 End If
             Else
                 valida.Visible = True
@@ -153,17 +120,51 @@ FECHA DE MODIFICACIÓN: 02/07/2014-2
             End If
         End If
     End Sub
+
     
     Protected Sub ds_guardar_Inserted(ByVal sender As Object, ByVal e As System.Web.UI.WebControls.SqlDataSourceStatusEventArgs)
+		'Response.Write("1")	
+		'valida.Visible = False    
         Dim conn As SqlConnection = New SqlConnection(ConfigurationManager.ConnectionStrings("intr_callConnectionString").ConnectionString)
         Dim cmd As SqlCommand = New SqlCommand()
         Dim codigo As Integer = e.Command.Parameters("@return_id").Value
         Dim cod_sim As TextBox = New TextBox
         cod_sim.Text = codigo
         Dim obs As TextBox = Panel1.FindControl("observacion")
-        Dim ase As DropDownList = Panel1.FindControl("ases")
+        'Response.Write("2")
+
+	'Se registra informacion del CSV
+	Dim lines2 () as String = contenidoCSV.Text.ToString().Split("|"c)
+        'Response.Write(" VALOR2: " & lines2.Count & " ")
+	If lines2.Count > 0 Then
+            Dim contador As Integer = 0
+            For Each line As String In lines2
+                If Not String.IsNullOrEmpty(line) then
+		Dim data As String() = line.Split(",")
+                Dim telefono_repsim As String = data(0)
+                Dim num_simcard As String = data(1)
+                Dim motivorepsim as String = "L"
+                Dim tipo_chip As String = "C"
+				
+		'Response.Write("telefono_repsim: " & telefono_repsim & " num_simcard: " & num_simcard & " cod_sim: " & cod_sim.text)
         
-        If Tipo.SelectedValue = "V" Then
+                ds_con_det.InsertParameters.Item("usuario_Registro").DefaultValue = User.Identity.Name
+		ds_con_det.InsertParameters("telefono_repsim").DefaultValue = telefono_repsim
+                ds_con_det.InsertParameters("num_simcard").DefaultValue = num_simcard
+                ds_con_det.InsertParameters("motivo_repsim").DefaultValue = motivorepsim
+                ds_con_det.InsertParameters("tipochp_repsim").DefaultValue = tipo_chip
+                ds_con_det.InsertParameters("id_sim").DefaultValue = cod_sim.text
+                ds_con_det.Insert()
+				End if
+
+            Next
+            Else
+            valida.Visible = True
+            valida.Text = "El archivo 'CSV' está vacía. No se han encontrado datos para realizar la insercion masiva."
+        End If
+		
+        If Tipo.SelectedValue = "P" or Tipo.SelectedValue = "V" Then
+      
             cmd.Connection = conn
             cmd.CommandText = "atv_reposicion_sim_ingreso"
             cmd.CommandType = CommandType.StoredProcedure
@@ -171,8 +172,7 @@ FECHA DE MODIFICACIÓN: 02/07/2014-2
             cmd.Parameters.AddWithValue("usuario", usuario.Value)
             cmd.Parameters.AddWithValue("ip", ip.Value)
             cmd.Parameters.AddWithValue("observacion", obs.Text)
-            cmd.Parameters.AddWithValue("asesor", ase.SelectedValue)
-        
+        	cmd.Parameters.AddWithValue("asesor", "")
             Dim rowCount As Integer
             Dim previousConnectionState As ConnectionState
             previousConnectionState = conn.State
@@ -183,51 +183,12 @@ FECHA DE MODIFICACIÓN: 02/07/2014-2
                 rowCount = cmd.ExecuteNonQuery()
     
             Finally
-               
                 If previousConnectionState = ConnectionState.Closed Then
                     conn.Close()
                 End If
             End Try
-        
         End If
-               
-        If Tipo.SelectedValue = "P" Then
-          
-            cmd.Connection = conn
-            cmd.CommandText = "atv_reposicion_sim_ingreso"
-            cmd.CommandType = CommandType.StoredProcedure
-            cmd.Parameters.AddWithValue("id_padre", codigo)
-            cmd.Parameters.AddWithValue("usuario", usuario.Value)
-            cmd.Parameters.AddWithValue("ip", ip.Value)
-            cmd.Parameters.AddWithValue("observacion", obs.Text)
-            cmd.Parameters.AddWithValue("asesor", ase.SelectedValue)
-        
-            Dim rowCount As Integer
-            Dim previousConnectionState As ConnectionState
-            previousConnectionState = conn.State
-            Try
-                If conn.State = ConnectionState.Closed Then
-                    conn.Open()
-                End If
-                rowCount = cmd.ExecuteNonQuery()
-    
-            Finally
-                If previousConnectionState = ConnectionState.Closed Then
-                    conn.Close()
-                End If
-            End Try
-            
-        End If
-       
-        '8957 - CIM GORTIZ - Se actualiza tramite en tabla de detalle
-        ds_con_det.UpdateParameters.Item("id_sim").DefaultValue = cod_sim.Text
-        For Each row As GridViewRow In gv_lineas_solicitud.Rows()
-            Dim therowindex As Integer = row.RowIndex
-            Dim theid As Integer = gv_lineas_solicitud.DataKeys([therowindex]).Value
-            ds_con_det.UpdateParameters.Item("id_sim_det").DefaultValue = theid.ToString()
-            ds_con_det.Update()
-        Next
-        
+        'Response.Write("3")	
         Dim conn5 As SqlConnection = New SqlConnection(ConfigurationManager.ConnectionStrings("intr_callConnectionString").ConnectionString)
         Dim cmd5 As SqlCommand = New SqlCommand()
         
@@ -238,11 +199,12 @@ FECHA DE MODIFICACIÓN: 02/07/2014-2
         cmd5.Parameters.AddWithValue("num_admin", txt_TelfAdministrador.Text)
         cmd5.Parameters.AddWithValue("medio", "*888")
         
-        Dim ciudad As String = Nothing
-        cmd5.Parameters.AddWithValue("ciudad", ciudad)
+        'Dim ciudad As String = "Guayaquil"
+        cmd5.Parameters.AddWithValue("ciudad", "")
 
         Dim rowCount5 As Integer
         Dim previousConnectionState5 As ConnectionState
+		'Response.Write("4")	
         previousConnectionState5 = conn5.State
             Try
             If conn5.State = ConnectionState.Closed Then
@@ -254,7 +216,85 @@ FECHA DE MODIFICACIÓN: 02/07/2014-2
                 conn5.Close()
             End If
             End Try
+            
+		' Funcion para el boton de btnReposicionmasivo
+		'Response.Write("77")
+		'Response.Write(contenidoCSV.Text.ToString())
+		
+		'Response.Write("555")	
+        
+	
+	
+	ds_con_det.UpdateParameters.Item("id_sim").DefaultValue = cod_sim.Text
+	ds_con_det.Update()
+
+	'22735 - Reposicion SIMCARD corporativo - actualiza solicitud a pendiente
+        Dim estadoP as String = "X"
+        ds_actualizar_sol.UpdateParameters.Item("estado").DefaultValue = estadoP
+        ds_actualizar_sol.UpdateParameters.Item("id_padre_sim").DefaultValue = cod_sim.Text
+        ds_actualizar_sol.Update()
+
+	'22735 - Reposicion SIMCARD corporativo - guardar informacion en cola axis
+	Dim re1 as SqlDataReader = conexion.traerDataReader("select id_sim_det, telefono_Reposicion, simcard_Reposicion from Tbl_atv_reposicion_sim_detalle where id_sim = " & cod_sim.Text, 2)
+	While re1.Read
+		Try
+			'Variables para conexion
+			Dim conn1 As System.Data.OracleClient.OracleConnection
+			Dim cmd1 As System.Data.OracleClient.OracleCommand
+
+			conn1 = New System.Data.OracleClient.OracleConnection(ConfigurationManager.ConnectionStrings("OracleAxisConnectionString").ConnectionString)
+			cmd1 = New System.Data.OracleClient.OracleCommand("PORTA.CLK_REPOSICION_SIM_EN_LINEA.P_INSERTAR_BITACORA_SIM", conn1)
+			cmd1.CommandType = CommandType.StoredProcedure
+			
+			conn1.Open()
+			cmd1.Parameters.AddWithValue("PN_ID_SIM_DET", re1.GetValue(0))
+			cmd1.Parameters.AddWithValue("PN_ID_SIMCARD_PR", cod_sim.Text)
+			cmd1.Parameters.AddWithValue("PV_ORIGEN", "EN LINEA")
+			cmd1.Parameters.AddWithValue("PV_ESTADO", "PENDIENTE")
+			cmd1.Parameters.AddWithValue("PV_TELEFONO", re1.GetValue(1))
+			cmd1.Parameters.AddWithValue("PV_NUMERO_SIMCARD", re1.GetValue(2))
+			cmd1.Parameters.AddWithValue("PV_USUARIO", "PORTA")
+			cmd1.Parameters.AddWithValue("PV_NUMERO_ADMIN", txt_TelfAdministrador.Text)
+			
+			conn1.Close()
+			conn1.Dispose()
+		Catch ex As Exception
+			Response.Write("ERROR!!! " & ex.ToString())
+		End Try
+	End While
+	re1.Close()
+    
+    ' PARTE DE ENVIO DE VARIABLES PARA CORREO
+    EnviarCorreo(cod_sim.Text)
+    correoTemporal.Visible = False
+
+    End Sube
+
+    ' FUNCION NUEVA PARA CORREO
+    Private Sub EnviarCorreo(ByVal codigoSim As String)
+    Dim msgMail As System.Web.Mail.MailMessage = New Mail.MailMessage()
+    Dim correoDestino As String = correoTemporal.text
+
+    msgMail.To = correoDestino
+    msgMail.From = "reposicion_simcard@claro.com.ec;"
+    msgMail.Subject = "Reposición en Linea No. tramite: " & codigoSim
+
+    msgMail.BodyFormat = System.Web.Mail.MailFormat.Html
+
+    Dim strBody As StringBuilder = New StringBuilder("")
+
+    strBody.Append("<html><body><font face=Verdana, Arial, Helvetica, sans-serif size=2>")
+    strBody.Append("<br>Estimado cliente,")
+    strBody.Append("<br>Le notificamos que su solicitud de reposición de Simcard se ha ingresado mediante ticket # " & codigoSim & ". Su servicio estará disponible en un lapso de 30 minutos.")
+    strBody.Append("<br><br>Si tiene alguna inquietud, por favor diríjala a través de nuestros canales de atención autorizados: <a href='mailto:atencionases@claro.com.ec'>atencionases@claro.com.ec</a> / *888 / *611 O mediante su Ejecutivo de Servicio asignado. Para Claro es un placer atenderle. ¡Que tenga un buen día!")
+    strBody.Append("</font></body></html>")
+
+    msgMail.Body = strBody.ToString
+
+    System.Web.Mail.SmtpMail.Send(msgMail)
+
     End Sub
+
 
     '==============================================================================
     ' Fecha:            28-04-2014
@@ -268,84 +308,100 @@ FECHA DE MODIFICACIÓN: 02/07/2014-2
     '                   - Correo Electronico del Cliente
     '==============================================================================
     Protected Sub ddl_region_SelectedIndexChanged(sender As Object, e As System.EventArgs)
-        ddl_ciudad.Items.Clear()
-        ds_ciudad.DataBind()
-        ddl_ciudad.DataSourceID = ds_ciudad.ID
-        ddl_ciudad.Items.Add("-Seleccionar-")
-        ddl_ciudad.Items.FindByText("-Seleccionar-").Value = "-1"
-        ddl_ciudad.Items.FindByText("-Seleccionar-").Selected = True
+        'ddl_ciudad.Items.Clear()
+        'ds_ciudad.DataBind()
+        'ddl_ciudad.DataSourceID = ds_ciudad.ID
+        'ddl_ciudad.Items.Add("-Seleccionar-")
+        'ddl_ciudad.Items.FindByText("-Seleccionar-").Value = "-1"
+        'ddl_ciudad.Items.FindByText("-Seleccionar-").Selected = True
         
-        If celular.Text = "" Then
-            celular.Text = "0"
-        End If
+        'If celular.Text = "" Then
+        '    celular.Text = "0"
+        'End If
     End Sub
 
     Protected Sub upnl_Region_Load(sender As Object, e As System.EventArgs)
-
-    End Sub
-
-
-    Protected Sub btnMostrarTabla_Click(ByVal sender As Object, ByVal e As EventArgs)
-    tablaReposicion.Visible = True
+		
     End Sub
     
-    'FORMA 1 - PARA AGG A UNA LISTA
+    'FUNCION DE LISTA PARA ARCHIVO .CSV
     Protected Sub btnReponeSimMasivo_Click(ByVal sender As Object, ByVal e As EventArgs)
+        valida.Visible = False
+        lines.Clear()
+		contenidoCSV.Text = ""
+        
         ' Validar que se haya seleccionado un archivo
-    If FileUpload1.HasFile Then
-        ' Validar que el archivo no esté vacío
-        If FileUpload1.PostedFile.ContentLength > 0 Then
-            Dim lines As New List(Of String)()
-            Dim contador As Integer = 0
+        If FileUpload1.HasFile Then
+            ' Validar que el archivo no esté vacío
+            If FileUpload1.PostedFile.ContentLength > 0 Then
+                ' Validar que el archivo sea de tipo CSV
+                If FileUpload1.FileName.ToLower().EndsWith(".csv") Then
+                    Dim contador As Integer = 0 
 
-        ' Leer el archivo CSV y obtener las líneas
-            Using parser As New TextFieldParser(FileUpload1.FileContent)
-        parser.TextFieldType = FieldType.Delimited
-        parser.SetDelimiters(",")
+                    ' Leer el archivo CSV y obtener las líneas
+                    Using parser As New TextFieldParser(FileUpload1.FileContent)
+                        parser.TextFieldType = FieldType.Delimited
+                        parser.SetDelimiters(",")
 
-        ' Ignorar la primera línea (encabezados)
-        parser.ReadLine()
+                        ' Ignorar la primera línea (encabezados)
+                        parser.ReadLine()
 
-                While Not parser.EndOfData
-                    Dim fields As String() = parser.ReadFields()
+                        While Not parser.EndOfData
+                            Dim fields As String() = parser.ReadFields()
 
-        ' Verificar si el archivo CSV contiene los 3 campos esperados
-                    If fields.Length = 3 Then
-                        Dim linea As String = fields(0)
-                        Dim simcard As String = fields(1)
-                        Dim contacto As String = fields(2)
+                            ' Verificar si el archivo CSV contiene los 3 campos esperados
+                            If fields.Length = 3 Then
+                                Dim linea As String = fields(0)
+                                Dim simcard As String = fields(1)
+                                Dim contacto As String = fields(2)
+								
+                                ' Procesar los datos según sea necesario
+                                contenidoCSV.Text = linea & "," & simcard & "," & contacto & "|" & contenidoCSV.Text.ToString()
+								lines.Add(linea & "," & simcard & "," & contacto)
 
-        ' Procesar los datos según sea necesario
-        ' Por ejemplo, puedes agregarlos a una lista
-        lines.Add($"{linea},{simcard},{contacto}")
+                                contador += 1
+                                celular.Text = contador.ToString()
 
-        ' Incrementar el contador
-        contador += 1
+                                ' Verificar si se ha alcanzado el limite de 50 filas
+                                If contador > 50 Then
+                                    valida.Visible = True
+                                    valida.Text = "Se ha superado el limite de 50 filas."
+                                
+                                    contador = 0
+                                    celular.Text = contador.ToString()
 
-        ' Verificar si se ha alcanzado el límite de 50 filas
-                        If contador >= 50 Then
-                            Exit While
-                        End If
-                    End If
-                End While
-            End Using
-
-        ' Mostrar mensaje de éxito o redireccionar a otra página
-        Response.Write("Se ha leído el archivo CSV exitosamente.")
+                                    Exit While
+                                End If
+                            End If
+                        End While
+                    End Using
+                Else
+                    valida.Visible = True
+                    valida.Text = "El archivo seleccionado no es de tipo CSV."
+                End If
+            Else
+                valida.Visible = True
+                valida.Text = "El archivo CSV esta vacio."
+            End If
         Else
-        ' Mostrar mensaje de error si el archivo está vacío
-        Response.Write("El archivo CSV está vacío.")
+            valida.Visible = True
+            valida.Text = "No se ha seleccionado ningun archivo CSV."
         End If
-        Else
-        ' Mostrar mensaje de error si no se seleccionó un archivo
-        Response.Write("No se ha seleccionado ningún archivo CSV.")
-    End If
-End Sub
+        If lines.Count > 0 Then
+        Dim correoDestino As String = lines(0).Split(","c)(2)
+        correoTemporal.Text = correoDestino
+        correoTemporal.Visible = True
+        End If
+    End Sub
+	
+	Protected Sub ds_Prueba(ByVal sender As Object, ByVal e As System.Web.UI.WebControls.SqlDataSourceStatusEventArgs)
+		Dim codigo As Integer = e.Command.Parameters("@return_id").Value
+	End Sub
 
 </script>
 
-<script language="javascript">
 
+<script language="javascript">
 
     function validar_nom(source, arguments) {
 
@@ -397,12 +453,23 @@ End Sub
             arguments.IsValid = true;
     }
 
+    function validar_telf_adm(source, arguments) {
+        //Se valida el ingreso de los 10 numeros del telefono administrador 
+        if ((arguments.Value.length < 10)) {
+            alert("Por favor, ingrese los 10 digitos del telefono administrador.");
+            arguments.IsValid = false;
+        }
+        else
+            arguments.IsValid = true;
+    }
+
 </script>
+
 
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head id="Head1" runat="server">
 
-    <title>Reposición de Simcard | Ingreso</title>
+    <title>Reposici&#243;n de Simcard | Ingreso</title>
     <script language="javascript" src="/portalsco/include/js/calendar/popcalendar.js"></script>
     <link href="/portalsco/include/js/calendar/popcalendar.css" type="text/css" rel="stylesheet">
     <style type="text/css">
@@ -427,7 +494,6 @@ End Sub
         }
     </style>
 </head>
-
 <body topmargin="0" leftmargin="0" rightmargin="0">
     <form id="form1" runat="server">
         <strong><span style="color: #ff0000">
@@ -458,7 +524,8 @@ End Sub
                     <td>
                         <strong><span style="color: #000000">Login:</span></strong></td>
                     <td>
-                        <asp:Label ID="Label4" runat="server" Text="Label" Font-Bold="False" ForeColor="DimGray"></asp:Label></td>
+                        <asp:Label ID="Label4" runat="server" Text="Label" Font-Bold="False" ForeColor="DimGray"></asp:Label>
+                    </td>
                     <td></td>
                     <td></td>
                 </tr>
@@ -470,13 +537,15 @@ End Sub
                 </tr>
                 <tr>
                     <td>
+                        <%-- TIPO DE CLIENTE  --%>
                         <strong><span style="color: #000000">Tipo Cliente:</span></strong></td>
                     <td align="left">
-                        <asp:RadioButtonList ID="Tipo" runat="server" OnSelectedIndexChanged="TIPO_SelectedIndexChanged"
-                            RepeatDirection="Horizontal" Width="144px" AutoPostBack="True">
+                        <asp:RadioButtonList ID="Tipo" runat="server" RepeatDirection="Horizontal" Width="144px" AutoPostBack="True">
                             <asp:ListItem Value="V" Selected="True">VIP</asp:ListItem>
                             <asp:ListItem Value="P">PYMES</asp:ListItem>
-                        </asp:RadioButtonList></td>
+                        </asp:RadioButtonList>
+                    </td>
+                    <%-- RUC --%>
                     <td class="style6">
                         <strong>RUC:&nbsp;</strong></td>
                     <td>
@@ -485,16 +554,21 @@ End Sub
                 </tr>
                 <tr>
                     <td>
+                        <%-- NOMBRE DEL CLIENTE --%>
                         <strong><span style="color: #000000">Nombre del Cliente:</span></strong></td>
                     <td>
                         <asp:TextBox ID="nombre" runat="server" MaxLength="60" Width="249px"></asp:TextBox>
                         <asp:CustomValidator ID="CustomValidator4" runat="server" ClientValidationFunction="validar_nom"
-                            ControlToValidate="nombre" ErrorMessage="*" SetFocusOnError="True" ValidateEmptyText="True"></asp:CustomValidator></td>
+                            ControlToValidate="nombre" ErrorMessage="*" SetFocusOnError="True" ValidateEmptyText="True">
+                        </asp:CustomValidator>
+                    </td>
                     <td>
+                        <%-- CUENTA AXIS --%>
                         <strong><span style="color: #000000">Cuenta Axis:</span></strong></td>
                     <td>
                         <asp:TextBox ID="cta_axis" runat="server" MaxLength="10" onkeypress="if ((event.keyCode > 0 && event.keyCode < 46)|| (event.keyCode == 47)|| (event.keyCode > 57 && event.keyCode < 256)) event.returnValue = false;"
-                            Width="81px"></asp:TextBox>
+                            Width="81px">
+                        </asp:TextBox>
                     </td>
                 </tr>
                 <tr>
@@ -515,115 +589,111 @@ End Sub
                             </asp:CustomValidator>
                         </span>
                 </tr>
+                <tr>
+                    <%--8957-TELEFONO ADMINISTRADOR AXIS--%>
+                    <td class="style4">
+                        <span style="color: #ff0000"><strong><span style="color: #000000">
+                            <asp:CheckBox ID="CheckBox1" runat="server" AutoPostBack="True" Enabled="False"
+                                Text="Números Adicionales Reposición:" Visible="False" />
+                        </span></strong></span></td>
+                    <td class="style4">
+                        <span style="color: #ff0000">
+                            <asp:TextBox ID="num_repo_v" runat="server" Columns="7" Enabled="False"
+                                Height="28px" MaxLength="99"
+                                onkeypress="if ((event.keyCode &gt; 0 &amp;&amp; event.keyCode &lt; 32)|| (event.keyCode &gt; 33 &amp;&amp; event.keyCode &lt; 35) ||(event.keyCode &gt; 38 &amp;&amp; event.keyCode &lt; 40) ||(event.keyCode &gt; 95 &amp;&amp; event.keyCode &lt; 97) ||(event.keyCode &gt; 125 &amp;&amp; event.keyCode &lt; 129) || (event.keyCode &gt; 165 &amp;&amp; event.keyCode &lt; 256)) event.returnValue = false;"
+                                Rows="5" TextMode="MultiLine" Visible="False" Width="115px">
+                            </asp:TextBox>
+                            <asp:TextBox ID="celular" runat="server" MaxLength="9"
+                                onkeypress="if ((event.keyCode &gt; 0 &amp;&amp; event.keyCode &lt; 48)|| (event.keyCode &gt; 57 &amp;&amp; event.keyCode &lt; 256)) event.returnValue = false;"
+                                Visible="False" Width="68px" AutoPostBack="True">
+                            </asp:TextBox>
+                        </span></td>
+                    <td class="style4">
+                        <span style="color: #ff0000"><strong><span style="color: #000000">
+                            <asp:Label ID="lbl_TelfAdmCuenta" runat="server"
+                                Text="Telf. Administrador cuenta Axis:"></asp:Label>
+                        </span></strong></span>
+                    </td>
+                    <td class="style4">
+                        <span style="color: #ff0000">
+                            <asp:TextBox ID="txt_TelfAdministrador" runat="server" MaxLength="10"
+                                onkeypress="if ((event.keyCode &gt; 0 &amp;&amp; event.keyCode &lt; 48)|| (event.keyCode &gt; 57 &amp;&amp; event.keyCode &lt; 256)) event.returnValue = false;"
+                                Width="100px">
+                            </asp:TextBox>
+                            <asp:CustomValidator ID="cv_TelfAdministrador" runat="server"
+                                ClientValidationFunction="validar_telf_adm" ControlToValidate="txt_TelfAdministrador"
+                                ErrorMessage="*" SetFocusOnError="True" ValidateEmptyText="True">
+                            </asp:CustomValidator>
+                        </span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <asp:TextBox ID="contenidoCSV" runat="server" Visible="False"></asp:TextBox>
+                    </td>
+                </tr>
             </table>
-
-            <%--CIM GORTIZ - PANEL INGRESO DETALLE DE LINEAS MINIMO 1 MAXIMO 10--%>
-            <asp:Panel ID="pnl_DetalleSolicitud" runat="server">
-                <br />
-                <table id="tablaReposicion" align="center" border="0" style="border: thin ridge #FF0000; width: 27%; display: none;">
-                    <tr>
-                        <td class="style3" colspan="5" align="center" bgcolor="#CC0000"
-                            style="color: #FFFFFF">Reposición Individual</td>
-                    </tr>
-                    <tr align="center">
-                        <td class="style10" align="center" bgcolor="#CCCCCC">
-                            <asp:Label ID="lbl_Det_NumRep" runat="server" Text="Numero de línea"></asp:Label>
-                        </td>
-                        <td class="style12" align="center" bgcolor="#CCCCCC">
-                            <asp:Label ID="lbl_Det_MotRep" runat="server" Text="Numero de Simcard"></asp:Label>
-                        </td>
-                        <td class="style13" align="center" bgcolor="#CCCCCC">
-                            <asp:Label ID="lbl_Det_TipRep" runat="server" Text="Celular/Correo Administrador"></asp:Label>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td class="style3">
-                            <asp:TextBox ID="txt_Det_NumRep" runat="server" Height="19px" Width="91px"></asp:TextBox>
-                        </td>
-                        <td class="style3">
-                            <asp:TextBox ID="txt_Det_NumRep1" runat="server" Height="19px" Width="91px"></asp:TextBox>
-                        </td>
-                        <td class="style3">
-                            <asp:TextBox ID="txt_Det_NumRep2" runat="server" Height="19px" Width="91px"></asp:TextBox>
-                        </td>
-                    </tr>
-                </table>
-            </asp:Panel>
 
             <span style="color: #ff0000">
                 <br />
             </span>
-
-            <asp:Label ID="valida" runat="server" Font-Bold="True" Font-Size="10pt"></asp:Label><br />
-            
+            <asp:Label ID="valida" runat="server" Font-Bold="True" Font-Size="10pt"></asp:Label>
             <br />
+            <br />
+            
+            <%-- OBSERVACIONES --%>
             <strong><span style="color: #000000">Observaciones:</span><br />
-            
             </strong>
-            
             <asp:TextBox ID="observacion" runat="server" MaxLength="500"
                 Rows="6" TextMode="MultiLine"
-                Width="380px" Height="54px"></asp:TextBox>
-            
+                Width="380px" Height="54px">
+            </asp:TextBox>
             <br />
             <asp:CustomValidator ID="CustomValidator5" runat="server" ClientValidationFunction="validar_coment"
-                ControlToValidate="observacion" SetFocusOnError="True" ValidateEmptyText="True"></asp:CustomValidator><br />
+                ControlToValidate="observacion" SetFocusOnError="True" ValidateEmptyText="True">
+            </asp:CustomValidator>
+            <br />
+            <br />
             <br />
 
-            <asp:Button ID="btnMostrarTabla" runat="server" Text="REPONE SIMCARD" OnClick="btnMostrarTabla_Click" />
-            <asp:Button ID="btnReponeSimMasivo" runat="server" Text="REPONE SIMCARD MASIVO" />
+            <asp:FileUpload ID="FileUpload1" runat="server" />
+            <br />
+            <br />
+            <asp:Button ID="btnReponeSimMasivo" runat="server" Text="REPONE SIMCARD MASIVO" OnClick="btnReponeSimMasivo_Click" Font-Bold="True" ForeColor="#0000FF" />
 
             <br />
             <br />
-            <asp:Button ID="grabar" runat="server" Text="Grabar" OnClick="guardar_click" Font-Bold="True" ForeColor="#000000" /><br />
+            <asp:Button ID="grabar" runat="server" Text="Grabar" OnClick="guardar_click" Font-Bold="True" ForeColor="#000000" />
+            <asp:TextBox ID="correoTemporal" runat="server" Visible="False"></asp:TextBox>
+            <br />
             <br />
             <br />
 
         </asp:Panel>
         &nbsp; &nbsp;&nbsp; &nbsp;&nbsp; &nbsp; &nbsp;
 
-        
-        <%--DATA SOURCE PARA LA CIUDAD FALTA EDITAR--%>
-        <asp:SqlDataSource ID="ds_ciudad" runat="server" ConnectionString="<%$ ConnectionStrings:CRMConnectionString %>"
-            SelectCommand="SELECT DISTINCT ( b.po_descripcion + ' - ' + a.desc_area ) AS Nombre, a.desc_area AS Id 
-FROM  intr_call.dbo.Tbl_D_CodigoArea a
-INNER JOIN  intr_call.dbo.Tbl_M_provincia b ON a.po_codigo = b.po_codigo 
-WHERE (a.codigo_pais = 18)
-and a.region in ('GYE', 'UIO', '---')
-and (@id_region='-1' or (a.region=@id_region))
-ORDER BY NOMBRE">
-             <SelectParameters>
-                 <asp:ControlParameter ControlID="ddl_region" Name="id_region" 
-                     PropertyName="SelectedValue" DefaultValue="-1" />
-             </SelectParameters>
-        </asp:SqlDataSource> 
-
-        
-        <%--DATA SOURCE PARA GUARDAR--%>
+        <%-- DATA SOURCE PARA GUARDAR --%>
         <asp:SqlDataSource ID="ds_guardar" runat="server" ConnectionString="<%$ ConnectionStrings:Intr_callConnectionString %>"
             InsertCommand="INSERT INTO Tbl_atv_reposicion_sim
-(fecha_ing, nom_ases, nom_cliente, cta_axis, direccion, nom_contacto, telf_contacto, num_repo, login, ip, observacion, num_repo_v, telf_contacto2,tipo, region_cliente, correo_cliente)
+(fecha_ing, nom_ases, nom_cliente, cta_axis,  num_repo, login, ip, observacion, num_repo_v, tipo, region_cliente,telf_contacto,telf_contacto2)
 VALUES
-(GETDATE(), @nom_ases, @nom_cliente, @cta_axis, @direccion, @nom_contacto, @telf_contacto, '0'+@num_repo, @login, @ip, @observacion, '-'+@num_repo_v, @telf_contacto2,@tipo, @region, @correo)
-; select @return_id=scope_identity()" OnInserted="ds_guardar_Inserted">
-            <InsertParameters>
-                <asp:Parameter Name="nom_ases" />
+(GETDATE(), '-', @nom_cliente, @cta_axis, '0'+@num_repo, @login, @ip, @observacion, '-'+@num_repo_v,@tipo, @region,@telf_contacto,@telf_contacto2)
+; select @return_id=scope_identity()"
+            OnInserted="ds_guardar_Inserted">
+            <insertparameters>
                 <asp:ControlParameter ControlID="nombre" Name="nom_cliente" PropertyName="Text" />
                 <asp:ControlParameter ControlID="cta_axis" Name="cta_axis" PropertyName="Text" />
-                <asp:Parameter Name="direccion" />
-                <asp:Parameter Name="nom_contacto" />
-                <asp:Parameter Name="telf_contacto" />
-                <asp:Parameter Name="telf_contacto2" />
                 <asp:ControlParameter ControlID="celular" Name="num_repo" PropertyName="Text" />
-                <asp:Parameter Name="num_repo_v" />
+                <asp:ControlParameter ControlID="num_repo_v" Name="num_repo_v" PropertyName="Text" />
                 <asp:ControlParameter ControlID="usuario" Name="login" PropertyName="Value" />
                 <asp:ControlParameter ControlID="ip" Name="ip" PropertyName="Value" />
                 <asp:ControlParameter ControlID="observacion" Name="observacion" PropertyName="Text" />
+                <asp:Parameter Name="region" />
+                <asp:Parameter Name="telf_contacto" />
+                <asp:Parameter Name="telf_contacto2" />
                 <asp:Parameter Name="return_id" Type="Int32" Direction="InputOutput" />
                 <asp:ControlParameter ControlID="Tipo" Name="tipo" PropertyName="SelectedValue" />
-                <asp:Parameter Name="region" />
-                <asp:Parameter Name="correo" />
-            </InsertParameters>
+            </insertparameters>
         </asp:SqlDataSource>
         <busyboxdotnet:busybox id="BusyBox1" runat="server" slideduration="900" text="Por favor espere mientras se procesan los datos." title="Portal SCO" />
         <asp:SqlDataSource ID="grab_pymes" runat="server" ConnectionString="<%$ ConnectionStrings:CRMConnectionString %>"
@@ -637,38 +707,71 @@ VALUES
         <asp:HiddenField ID="usuario" runat="server" />
         <asp:HiddenField ID="ip" runat="server" />
         <asp:HiddenField ID="mail" runat="server" />
-        
 
-        <%--DATA SOURCE PARA LA TABLA FALTA EDITAR--%>
+
+        <%-- DATA SOURCE PARA LA TABLA --%>
         <asp:SqlDataSource ID="ds_con_det" runat="server" ConnectionString="<%$ ConnectionStrings:Intr_callConnectionString %>"
             SelectCommand="SELECT id_sim_det, telefono_Reposicion, CASE motivo_Reposicion WHEN 'R' THEN 'Robo' WHEN 'A' THEN 'Daño/Perdida' WHEN 'S' THEN 'Stock de simcard' END AS motivo_Reposicion, CASE tipochip_Reposicion WHEN 'C' THEN 'Simcard Normal' WHEN 'M' THEN 'Mini Simcard' WHEN 'I' THEN 'Micro Simcard' WHEN 'N' THEN 'Nano Simcard' END AS tipochip_Reposicion, fecha_Registro FROM Tbl_atv_reposicion_sim_detalle WHERE (id_CuentaAxis = @ctaAxis) AND (estado = 'P') ORDER BY id_sim_det"
             CancelSelectOnNullParameter="False"
-            InsertCommand="INSERT INTO Tbl_atv_reposicion_sim_detalle(id_CuentaAxis, telefono_Reposicion, motivo_Reposicion, tipochip_Reposicion, fecha_Registro, usuario_Registro, estado) VALUES (@id_CuentaAxis, @telefono_repsim, @motivo_repsim, @tipochp_repsim, getdate(), @usuario_Registro, 'P')"
+            InsertCommand="INSERT INTO Tbl_atv_reposicion_sim_detalle(id_CuentaAxis, telefono_Reposicion, motivo_Reposicion, tipochip_Reposicion, fecha_Registro, usuario_Registro, estado, simcard_Reposicion, id_sim) VALUES (@id_CuentaAxis, @telefono_repsim, @motivo_repsim, @tipochp_repsim, getdate(), @usuario_Registro, 'P', @num_simcard, @id_sim)
+			; select @return_id=scope_identity()"
+            OnInserted="ds_Prueba"
             DeleteCommand="DELETE FROM Tbl_atv_reposicion_sim_detalle WHERE (id_sim_det = @id_sim_det) AND (estado = 'P')"
-            UpdateCommand="UPDATE Tbl_atv_reposicion_sim_detalle SET id_sim = @id_sim, estado = 'F' WHERE (id_sim_det = @id_sim_det) AND (estado = 'P')">
-            <DeleteParameters>
+            UpdateCommand="UPDATE Tbl_atv_reposicion_sim_detalle SET estado = 'F' WHERE (id_sim = @id_sim) AND (estado = 'P')">
+            <deleteparameters>
                 <asp:Parameter Name="id_sim_det" />
-            </DeleteParameters>
-            <InsertParameters>
-                <asp:ControlParameter ControlID="cta_axis" Name="id_CuentaAxis"
-                    PropertyName="Text" />
-                <asp:ControlParameter ControlID="txt_Det_NumRep" Name="telefono_repsim"
-                    PropertyName="Text" />
-                <asp:ControlParameter ControlID="ddl_Det_MotRep" Name="motivo_repsim"
-                    PropertyName="SelectedValue" />
-                <asp:ControlParameter ControlID="ddl_Det_TipChip" Name="tipochp_repsim"
-                    PropertyName="SelectedValue" />
+            </deleteparameters>
+            <insertparameters>
+                <asp:Parameter Name="id_CuentaAxis" />
+                <asp:Parameter Name="telefono_repsim" />
+                <asp:Parameter Name="num_simcard" />
+                <asp:Parameter Name="motivo_repsim" />
+                <asp:Parameter Name="tipochp_repsim" />
                 <asp:Parameter Name="usuario_Registro" />
-            </InsertParameters>
-            <SelectParameters>
-                <asp:ControlParameter ControlID="cta_axis" DefaultValue="" Name="ctaAxis"
-                    PropertyName="Text" />
-            </SelectParameters>
-            <UpdateParameters>
                 <asp:Parameter Name="id_sim" />
-                <asp:Parameter Name="id_sim_det" />
-            </UpdateParameters>
+                <asp:Parameter Name="return_id" Type="Int32" Direction="InputOutput" />
+            </insertparameters>
+            <selectparameters>
+                <asp:ControlParameter ControlID="cta_axis" DefaultValue="" Name="ctaAxis" PropertyName="Text" />
+            </selectparameters>
+            <updateparameters>
+                <asp:Parameter Name="id_sim" />
+            </updateparameters>
         </asp:SqlDataSource>
+
+        <%--22735 - DATASOURCE ACTUALIZAR SOLICITUD A PENDINETE --%>
+        <asp:SqlDataSource ID="ds_actualizar_sol" runat="server" ConnectionString="<%$ ConnectionStrings:Intr_callConnectionString %>"
+            UpdateCommand="UPDATE Tbl_atv_reposicion_sim_proceso SET ultimo_estado = @estado WHERE id_padre = @id_padre_sim">
+            <updateparameters>
+                <asp:Parameter Name="estado" />
+                <asp:Parameter Name="id_padre_sim" />
+            </updateparameters>
+        </asp:SqlDataSource>
+
+        <%--22735 - DATASOURCE PARA LA NUEVA TABLA SQL SERVER --%>
+        <asp:SqlDataSource ID="ds_guardar_cola" runat="server" ConnectionString="<%$ ConnectionStrings:Intr_callConnectionString %>"
+            InsertCommand="INSERT INTO Tbl_atv_reposicion_sim_cola
+(id_simcard_cola, id_simcard_pr, origen, estado, respuesta_ws, fecha_programada, usuario_registro, fecha_registro, usuario_modificacion, fecha_modificacion)
+VALUES
+(scope_identity(), @id_simcard_pr, @origen, @estado, @respuesta_ws, @fecha_programada, @usuario_registro, @fecha_registro, @usuario_modificacion, @fecha_modificacion);">
+            <insertparameters>
+                <asp:ControlParameter Name="id_simcard_pr" />
+                <asp:ControlParameter Name="origen" />
+                <asp:ControlParameter Name="estado" />
+                <asp:ControlParameter Name="respuesta_ws" />
+                <asp:ControlParameter Name="fecha_programada" />
+                <asp:ControlParameter Name="usuario_registro" />
+                <asp:ControlParameter Name="fecha_registro" />
+                <asp:ControlParameter Name="usuario_modificacion" />
+                <asp:ControlParameter Name="fecha_modificacion" />
+            </insertparameters>
+        </asp:SqlDataSource>
+        <busyboxdotnet:busybox id="BusyBox2" runat="server" slideduration="900" text="Por favor espere mientras se procesan los datos." title="Portal SCO" />
+        &nbsp;&nbsp; &nbsp; &nbsp;&nbsp; &nbsp;&nbsp; &nbsp; &nbsp;
+        &nbsp;&nbsp; &nbsp; &nbsp;&nbsp; &nbsp;&nbsp; &nbsp; &nbsp;
+        &nbsp;&nbsp; &nbsp; &nbsp;&nbsp; &nbsp;&nbsp; &nbsp; &nbsp;
+        &nbsp;&nbsp; &nbsp; &nbsp;&nbsp; &nbsp;&nbsp; &nbsp; &nbsp;
+
     </form>
 </body>
 </html>

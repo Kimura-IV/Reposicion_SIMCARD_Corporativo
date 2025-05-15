@@ -15,7 +15,7 @@
         <asp:MenuItem Text="  Ingresar" Value="Ingresar" ImageUrl="~/images/Iconos/icon_ingreso.gif">
             <asp:MenuItem Text="Ingreso de Casos (Pymes, Simcard)" Value="Ingreso" NavigateUrl="~/webpages/atv/reposicion_sim/ingreso.aspx"></asp:MenuItem>
 
-            <!-- Nuevo MenuItem agregado debajo del existente -->
+             <%--Nuevo MenuItem agregado debajo del existente--%>
             <asp:MenuItem Text="Reposición en Línea" Value="Ingreso" NavigateUrl="~/webpages/atv/reposicion_sim/reposicion_linea.aspx"></asp:MenuItem>
 
         </asp:MenuItem>
